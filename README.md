@@ -1,39 +1,29 @@
 # libby → x4
 
-A single-page GitHub Pages site that sends Libby loans to an **Xteink X4** running
+A typewriter-style setup wizard that sends your Libby loans to an **Xteink X4** running
 **CrossPoint 2.0** with the **Protected Content** plugin (from Plugin Hub).
 
-You drop the `.acsm` files from Libby onto the page. It then:
+Live: https://adude123-cyber.github.io/libby-to-x4/
 
-1. checks the reader at `http://crosspoint.local` (or its IP) via `GET /api/status`
-2. creates the target folder (default `/Libby`) via `POST /mkdir`
-3. uploads each `.acsm` via `POST /upload`
-4. queues `{plugin:"protected-content", action:"fulfill", args:{path}}` on `POST /api/plugin-jobs`
-5. opens the reader's headless runner (`/plugins-run`) in a small popup so the plugin can run the job
-6. polls `GET /api/plugin-jobs/status` until the book is on the card
+It runs in two places, from the same code (`wizard.js`):
 
-The plugin downloads the encrypted EPUB next to the `.acsm`, writes the key, and deletes the `.acsm`.
-DRM stays in place: the book is decrypted on the device and expires with the loan.
+- **the website**: talks to the reader over your Wi-Fi
+- **the reader's own file manager**: as an SD plugin (`plugin/`), installable from the website's
+  "find the reader" step, or by copying `plugin/manifest.json` and `plugin/plugin.js`
+  into `/plugins/libby-x4/` on the SD card
 
-## One-time setup on the reader
+## Steps
 
-- Flash CrossPoint 2.0 (https://crosspointreader.com/#flash-tools)
-- Settings → Connectivity → Plugins → **Enabled**
-- Home → Plugins → Plugin Hub → Install, then install **Protected Content**
-- Start File Transfer in **join network** mode (not hotspot)
-- Open `http://crosspoint.local/files` and sign in with your Adobe ID on the Protected Content card
+1. **setup**: one-time checklist (flash, enable plugins, install Protected Content, sign in with an Adobe ID)
+2. **reader**: connect to `crosspoint.local` or its IP (website only)
+3. **libby**: link once with an 8-digit Libby setup code (Menu → Copy to another device)
+4. **books**: tick loans (or drop `.acsm` files)
+5. **send**: for each book the reader downloads the `.acsm` from Libby, then Protected Content fulfils it
 
-## Deploy
+Libby is reached through the reader's `/api/relay` and `/api/fetch`, so the browser never calls
+Libby directly. This uses Libby's unofficial API (same as the calibre Libby plugin) and may break.
+Books stay DRM-protected: they're decrypted on the reader and expire with the loan.
 
-```sh
-git init && git add . && git commit -m "libby to x4"
-gh repo create libby-to-x4 --public --source . --push
-gh api -X POST repos/{owner}/libby-to-x4/pages -f "source[branch]=main" -f "source[path]=/"
-```
+## Develop
 
-## Browser notes
-
-The page is HTTPS and the reader is plain HTTP on your LAN. Chrome and Edge allow this
-through Local Network Access (click **Allow** on the prompt). If your browser blocks it,
-use the page's "save this page" link and open the saved file locally, or upload the
-`.acsm` by hand in the reader's file manager.
+Edit `wizard.js`, then run `./build.sh` to regenerate `plugin/plugin.js`.
