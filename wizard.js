@@ -226,18 +226,68 @@
       if (S.token) h.Authorization = 'Bearer ' + S.token;
       return Object.assign(h, extra || {});
     }
-    async function libby(method, path, body) {
-      const headers = libbyHeaders();
-      let b = '';
-      if (body !== undefined) { headers['Content-Type'] = 'application/json; charset=UTF-8'; b = JSON.stringify(body); }
-      const r = await postJson('/api/relay', { plugin: PLUGIN, method, url: LIBBY + path, headers, body: b }, 30000);
+    // Raw relay call. Upstream status/headers are only readable on the reader's own
+    // page (the device doesn't expose them cross-origin), so remote gets null there.
+    async function relay(method, url, headers, body) {
+      const r = await postJson('/api/relay', { plugin: PLUGIN, method, url, headers, body: body || '' }, 30000);
       let text;
       try { text = await r.text(); } catch (e) { const x = new Error('relay cut short'); x.status = 502; throw x; }
       if (!r.ok) {
         const x = new Error(r.status === 403 || /disabled/i.test(text) ? 'plugins are disabled on the reader' : 'reader relay: HTTP ' + r.status + ' ' + text.slice(0, 120));
         x.status = r.status; throw x;
       }
+      let status = null, location = null;
+      try {
+        status = r.headers.get('X-Relay-Status') ? Number(r.headers.get('X-Relay-Status')) : null;
+        const raw = r.headers.get('X-Relay-Headers');
+        if (raw) {
+          const list = JSON.parse(new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0))));
+          const loc = list.find((h) => String(h[0]).toLowerCase() === 'location');
+          if (loc) location = loc[1];
+        }
+      } catch (e) {}
+      return { text, status, location };
+    }
+    async function libby(method, path, body) {
+      const headers = libbyHeaders();
+      let b = '';
+      if (body !== undefined) { headers['Content-Type'] = 'application/json; charset=UTF-8'; b = JSON.stringify(body); }
+      const { text } = await relay(method, LIBBY + path, headers, b);
       try { return JSON.parse(text); } catch (e) { throw new Error('libby sent something unexpected: ' + text.slice(0, 120)); }
+    }
+    // Get a loan's .acsm onto the card at `path`.
+    // 1) the reader downloads it directly (/api/fetch, follows redirects);
+    // 2) if Libby refuses that, ask again through the relay, which sends the same
+    //    browser-like request that already works for the shelf, and show what Libby said.
+    async function getAcsm(loan, folder, name) {
+      const path = folder + '/' + name;
+      const url = LIBBY + 'card/' + loan.cardId + '/loan/' + loan.id + '/fulfill/' + ADOBE_EPUB;
+      let firstErr = null;
+      try {
+        await fetchToSd(url, path, libbyHeaders({ Accept: '*/*' }));
+        const head = await readSdText(path);
+        if (/fulfillmentToken/i.test(head)) return path;
+        await delFile(path);
+        firstErr = new Error('libby sent something that is not an .acsm: ' + head.replace(/\s+/g, ' ').slice(0, 160));
+      } catch (e) {
+        if (e instanceof Blocked) throw e;
+        firstErr = e;
+      }
+      let hop = await relay('GET', url, libbyHeaders({ Accept: '*/*' }));
+      for (let i = 0; i < 3 && !/fulfillmentToken/i.test(hop.text); i++) {
+        // follow a redirect if we can see where it goes
+        let next = hop.location;
+        if (!next) { const m = /https?:\/\/[^\s"'<>]+/.exec(hop.text || ''); next = m && /fulfill|acsm|contentreserve/i.test(m[0]) ? m[0].replace(/&amp;/g, '&') : null; }
+        if (!next) break;
+        const sameHost = new URL(next, url).host === new URL(LIBBY).host;
+        hop = await relay('GET', new URL(next, url).href, sameHost ? libbyHeaders({ Accept: '*/*' }) : { Accept: '*/*', 'User-Agent': UA });
+      }
+      if (/fulfillmentToken/i.test(hop.text)) {
+        await upload(new Blob([hop.text], { type: 'application/vnd.adobe.adept+xml' }), folder, name);
+        return path;
+      }
+      const said = (hop.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+      throw new Error(firstErr.message + (said ? ' · libby said: ' + said : hop.status ? ' · relay got HTTP ' + hop.status : ''));
     }
     async function libbySync() {
       try {
@@ -327,21 +377,46 @@
       }
       throw new Error('reader job queue stayed full');
     }
+    // Hand the .acsm to Protected Content.
+    // On the reader's own page that plugin is loaded right here, so call it directly:
+    // no job queue, no status polling competing with the book download for the
+    // reader's memory and sockets. Its own status line is mirrored into ours.
+    async function fulfil(job, path) {
+      const host = window.CrossPoint;
+      const direct = !remote && host && host._actions && host._actions['protected-content'] && host._actions['protected-content'].fulfill;
+      if (direct) {
+        job.phase = 'handing to protected content'; drawJobs();
+        log(job.name + ' → protected content');
+        const mirror = setInterval(() => {
+          const el = document.getElementById('lib-status');
+          const t = el && el.textContent.trim().split('\n')[0];
+          if (t && t !== job.phase) { job.phase = t.replace(/[“”…]/g, '').toLowerCase().slice(0, 60); drawJobs(); }
+        }, 700);
+        try { return (await direct({ path })) || {}; } finally { clearInterval(mirror); }
+      }
+      job.phase = 'queueing'; drawJobs();
+      const id = await enqueue(path);
+      log(job.name + ' → job #' + id);
+      return waitJob(job, id);
+    }
     // The reader serves one request at a time, so while it downloads a book these
-    // status checks queue behind it. Poll gently and treat timeouts as "still busy".
+    // status checks queue behind it and eat memory it needs. Check rarely once
+    // the download is running and treat timeouts as "still busy".
     async function waitJob(job, id) {
       const start = Date.now();
-      while (Date.now() - start < 12 * 60 * 1000) {
-        await sleep(3000);
+      let running = false;
+      while (Date.now() - start < 15 * 60 * 1000) {
+        await sleep(running ? 10000 : 3000);
         let s;
         try {
-          const r = await dev('/api/plugin-jobs/status?id=' + id, null, 12000);
+          const r = await dev('/api/plugin-jobs/status?id=' + id, null, 25000);
           if (!r.ok) continue;
           s = await r.json();
         } catch (e) {
-          if (e.timeout) { job.phase = 'reader busy downloading'; drawJobs(); continue; }
+          if (e.timeout) { running = true; job.phase = 'reader busy downloading'; drawJobs(); continue; }
           throw e;
         }
+        if (s.state === 'running') running = true;
         if (s.state === 'done') return s.result || {};
         if (s.state === 'error') throw new Error((s.result && s.result.error) || 'protected content reported an error');
         if (s.state === 'unknown') throw new Error('job vanished (did the reader restart or leave file transfer?)');
@@ -349,7 +424,7 @@
         job.stalled = s.state === 'pending' && Date.now() - start > 30000;
         drawJobs();
       }
-      throw new Error('gave up after 12 minutes');
+      throw new Error('gave up after 15 minutes. the book may still land; check the library on the reader.');
     }
     let runnerWin = null;
     function openRunner() {
@@ -378,23 +453,14 @@
             let path;
             if (job.kind === 'loan') {
               job.phase = 'getting ticket from libby'; drawJobs();
-              path = folder + '/libby-' + job.loan.id + '.acsm';
-              await fetchToSd(LIBBY + 'card/' + job.loan.cardId + '/loan/' + job.loan.id + '/fulfill/' + ADOBE_EPUB, path, libbyHeaders({ Accept: '*/*' }));
-              const head = await readSdText(path);
-              if (!/fulfillmentToken/i.test(head)) {
-                await delFile(path);
-                throw new Error('libby did not return an .acsm: ' + head.replace(/\s+/g, ' ').slice(0, 140));
-              }
+              path = await getAcsm(job.loan, folder, 'libby-' + job.loan.id + '.acsm');
             } else {
               job.phase = 'uploading'; drawJobs();
               const name = 'libby-' + Date.now().toString(36) + '.acsm';
               path = folder + '/' + name;
               await upload(job.file, folder, name);
             }
-            job.phase = 'queueing'; drawJobs();
-            const id = await enqueue(path);
-            log(job.name + ' → job #' + id);
-            const res = await waitJob(job, id);
+            const res = await fulfil(job, path);
             job.state = 'done'; job.phase = 'on the reader'; job.t1 = Date.now();
             if (job.kind === 'loan') { S.sent[job.loan.id] = Date.now(); store.set('sent', S.sent); delete S.pick[job.loan.id]; }
             log('“' + (res.title || job.name) + '” → ' + (res.dest || folder) + (res.bytes ? ' · ' + Math.round(res.bytes / 1024) + ' kb' : '') + ' · ' + mmss(job.t1 - job.t0), 'ok');
