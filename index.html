@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Libby to X4</title>
+<meta name="description" content="Send Libby loans (.acsm) to an Xteink X4 running CrossPoint with the Protected Content plugin.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='4' width='20' height='24' fill='%23f4efe4' stroke='%231d1b17' stroke-width='2'/%3E%3Cpath d='M10 11h12M10 16h12M10 21h8' stroke='%231d1b17' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #f4efe4;
+    --ink: #1d1b17;
+    --faded: #6d675c;
+    --rule: #cfc6b4;
+    --red: #a3271d;
+    --ok: #2f5d34;
+    --sel: #e6dcc6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #191815;
+      --ink: #e9e3d6;
+      --faded: #9a9384;
+      --rule: #3a372f;
+      --red: #e0705f;
+      --ok: #8dbf8a;
+      --sel: #2a2823;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #191815;
+    --ink: #e9e3d6;
+    --faded: #9a9384;
+    --rule: #3a372f;
+    --red: #e0705f;
+    --ok: #8dbf8a;
+    --sel: #2a2823;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.6 "Courier Prime", "Courier New", Courier, monospace;
+  }
+  ::selection { background: var(--sel); }
+  main { max-width: 680px; margin: 0 auto; padding: 56px 16px 96px; }
+
+  h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 4px; letter-spacing: .02em; }
+  h1 .caret { display: inline-block; width: .55em; border-bottom: 3px solid var(--ink); margin-left: 2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { h1 .caret { animation: none; } }
+  .sub { color: var(--faded); margin: 0 0 40px; }
+
+  section { border-top: 1px dashed var(--rule); padding: 24px 0 8px; }
+  h2 { font-size: 1rem; font-weight: 700; margin: 0 0 12px; text-transform: lowercase; }
+  h2 .n { color: var(--faded); font-weight: 400; margin-right: .6em; }
+  p { margin: 0 0 12px; }
+  .faded { color: var(--faded); }
+  a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { color: var(--red); }
+  code { font: inherit; background: var(--sel); padding: 0 4px; }
+
+  ol.steps { margin: 0 0 12px; padding: 0; list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; padding-left: 2.4em; text-indent: -2.4em; margin-bottom: 6px; }
+  ol.steps li::before { content: counter(s, lower-alpha) ")"; display: inline-block; width: 2.4em; text-indent: 0; color: var(--faded); }
+
+  .check { display: flex; gap: .8em; align-items: flex-start; margin-bottom: 8px; cursor: pointer; }
+  .check input { appearance: none; -webkit-appearance: none; margin: 0; flex: none; font: inherit; color: inherit; width: 2.2em; height: 1.6em; cursor: pointer; }
+  .check input::before { content: "[ ]"; }
+  .check input:checked::before { content: "[x]"; }
+  .check input:focus-visible { outline: 1px dashed var(--ink); outline-offset: 2px; }
+  .check input:checked + span { color: var(--faded); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  label.lbl { color: var(--faded); }
+  input[type=text] {
+    font: inherit; color: var(--ink); background: transparent;
+    border: 0; border-bottom: 1px solid var(--ink); padding: 2px 0; min-width: 0; flex: 1 1 200px;
+    border-radius: 0;
+  }
+  input[type=text]:focus { outline: none; border-bottom-width: 2px; }
+  button {
+    font: inherit; color: var(--ink); background: transparent; cursor: pointer;
+    border: 1px solid var(--ink); padding: 4px 14px; border-radius: 0;
+  }
+  button:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+  button:focus-visible { outline: 1px dashed var(--ink); outline-offset: 3px; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.link { border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; }
+  button.link:hover { background: none; color: var(--red); }
+
+  .drop {
+    border: 1px dashed var(--ink); padding: 32px 16px; text-align: center; cursor: pointer;
+    margin-bottom: 12px; transition: background .15s;
+  }
+  .drop.over, .drop:hover { background: var(--sel); }
+  .drop:focus-visible { outline: 1px dashed var(--ink); outline-offset: 3px; }
+
+  ul.queue { list-style: none; padding: 0; margin: 0 0 16px; }
+  ul.queue li { display: flex; gap: 12px; justify-content: space-between; padding: 4px 0; border-bottom: 1px dotted var(--rule); }
+  ul.queue .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  ul.queue .st { flex: none; color: var(--faded); }
+  ul.queue .st.ok { color: var(--ok); }
+  ul.queue .st.err { color: var(--red); }
+  ul.queue button.link { color: var(--faded); flex: none; }
+
+  pre.log {
+    font: inherit; font-size: .9rem; white-space: pre-wrap; word-break: break-word;
+    margin: 0; padding: 12px 0 0; min-height: 3em; color: var(--ink);
+  }
+  pre.log .t { color: var(--faded); }
+  pre.log .e { color: var(--red); }
+  pre.log .k { color: var(--ok); }
+
+  .status { margin: 0 0 12px; }
+  .status .ok { color: var(--ok); }
+  .status .err { color: var(--red); }
+
+  details { margin-bottom: 12px; }
+  summary { cursor: pointer; color: var(--faded); list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "+ "; }
+  details[open] summary::before { content: "- "; }
+  details > div { padding: 8px 0 0 1.2em; }
+
+  footer { margin-top: 48px; color: var(--faded); font-size: .85rem; border-top: 1px dashed var(--rule); padding-top: 16px; }
+  .theme { position: fixed; top: 12px; right: 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<button class="link theme" id="theme" type="button" aria-label="toggle theme">[ink]</button>
+<main>
+  <h1>libby &rarr; x4<span class="caret" aria-hidden="true"></span></h1>
+  <p class="sub">borrow on libby. drop the .acsm here. read it on your xteink.</p>
+
+  <!-- 00 setup -->
+  <section id="setup">
+    <h2><span class="n">00</span>one-time setup</h2>
+    <p class="faded">tick these off once. they're saved in this browser.</p>
+    <label class="check"><input type="checkbox" data-k="fw"><span>flash <a href="https://crosspointreader.com/#flash-tools" target="_blank" rel="noopener">crosspoint 2.0</a> onto the x4.</span></label>
+    <label class="check"><input type="checkbox" data-k="plug"><span>on the reader: <code>settings &rarr; connectivity &rarr; plugins &rarr; enabled</code>.</span></label>
+    <label class="check"><input type="checkbox" data-k="hub"><span><code>home &rarr; plugins &rarr; plugin hub &rarr; install</code>, then install <b>protected content</b> from the hub.</span></label>
+    <label class="check"><input type="checkbox" data-k="wifi"><span>start <code>file transfer</code> on your home wi-fi (<i>join network</i>, not hotspot), so the reader can reach the internet.</span></label>
+    <label class="check"><input type="checkbox" data-k="adobe"><span>open <a href="#" id="filesLink" target="_blank" rel="noopener">the reader's file manager</a>, find the protected content card and sign in with your adobe id. this authorizes the device.</span></label>
+  </section>
+
+  <!-- 01 device -->
+  <section id="device">
+    <h2><span class="n">01</span>find the reader</h2>
+    <div class="row">
+      <label class="lbl" for="host">address</label>
+      <input type="text" id="host" spellcheck="false" autocomplete="off" value="crosspoint.local" aria-describedby="hostHint">
+      <button type="button" id="connect">connect</button>
+    </div>
+    <p class="faded" id="hostHint">if <code>crosspoint.local</code> doesn't answer, type the ip shown on the reader's screen.</p>
+    <p class="status" id="devStatus" aria-live="polite"></p>
+    <details id="blocked" hidden>
+      <summary>browser won't connect?</summary>
+      <div>
+        <p>this page is https, the reader is plain http on your local network. browsers are careful about that.</p>
+        <ol class="steps">
+          <li>use chrome or edge and click <b>allow</b> when asked about devices on your local network.</li>
+          <li>or <a href="#" id="saveLink" download="libby-to-x4.html">save this page</a> and open the file from your computer. it works the same.</li>
+          <li>or skip the automation: upload the .acsm in the reader's file manager and press fulfill on the protected content card.</li>
+        </ol>
+      </div>
+    </details>
+  </section>
+
+  <!-- 02 libby -->
+  <section id="libby">
+    <h2><span class="n">02</span>get the .acsm from libby</h2>
+    <ol class="steps">
+      <li>open <a href="https://libbyapp.com/shelf/loans" target="_blank" rel="noopener">libbyapp.com/shelf/loans</a> in a desktop browser.</li>
+      <li>on the loan, pick <code>read with&hellip;</code> &rarr; <code>other options</code> &rarr; <code>epub</code>.</li>
+      <li>a small <code>.acsm</code> file downloads. that's the ticket, not the book.</li>
+    </ol>
+    <p class="faded">no epub option? that title is kindle- or libby-only and can't go to the x4.</p>
+  </section>
+
+  <!-- 03 send -->
+  <section id="send">
+    <h2><span class="n">03</span>send to the x4</h2>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="choose .acsm files">
+      drop .acsm files here<br><span class="faded">or click to choose</span>
+    </div>
+    <input type="file" id="file" accept=".acsm,application/vnd.adobe.adept+xml" multiple class="sr" tabindex="-1">
+    <ul class="queue" id="queue"></ul>
+    <div class="row">
+      <label class="lbl" for="folder">folder</label>
+      <input type="text" id="folder" spellcheck="false" autocomplete="off" value="/Libby">
+      <button type="button" id="go" disabled>send</button>
+    </div>
+    <p class="faded">a small tab opens to the reader's plugin runner. keep it open until the log says done.</p>
+    <pre class="log" id="log" aria-live="polite"></pre>
+  </section>
+
+  <footer>
+    nothing leaves your network except what the protected content plugin sends to adobe.
+    books stay encrypted on the card and expire when the loan does.
+    &nbsp;<a href="https://github.com/crosspoint-reader/crosspoint-reader/blob/master/docs/sd-plugins.md" target="_blank" rel="noopener">how it works</a>
+  </footer>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('l2x4.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('l2x4.' + k, JSON.stringify(v)); } catch {} },
+  };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ---------- theme ----------
+  const themeBtn = $('theme');
+  const applyTheme = (t) => {
+    if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+    themeBtn.textContent = t === 'dark' ? '[paper]' : t === 'light' ? '[ink]' :
+      (matchMedia('(prefers-color-scheme: dark)').matches ? '[paper]' : '[ink]');
+  };
+  applyTheme(store.get('theme', null));
+  themeBtn.onclick = () => {
+    const dark = getComputedStyle(document.body).backgroundColor === 'rgb(25, 24, 21)';
+    const t = dark ? 'light' : 'dark';
+    store.set('theme', t); applyTheme(t);
+  };
+
+  // ---------- setup checklist ----------
+  const checks = store.get('checks', {});
+  document.querySelectorAll('#setup input[type=checkbox]').forEach((cb) => {
+    cb.checked = !!checks[cb.dataset.k];
+    cb.onchange = () => { checks[cb.dataset.k] = cb.checked; store.set('checks', checks); };
+  });
+
+  // ---------- device ----------
+  const hostEl = $('host');
+  const folderEl = $('folder');
+  hostEl.value = store.get('host', 'crosspoint.local');
+  folderEl.value = store.get('folder', '/Libby');
+
+  const base = () => {
+    let h = hostEl.value.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    return 'http://' + (h || 'crosspoint.local');
+  };
+  const syncLinks = () => { $('filesLink').href = base() + '/files'; };
+  hostEl.oninput = () => { store.set('host', hostEl.value.trim()); syncLinks(); };
+  folderEl.oninput = () => store.set('folder', folderEl.value.trim());
+  syncLinks();
+
+  // "save this page" fallback: a copy opened from disk isn't blocked as mixed content.
+  $('saveLink').onclick = (e) => {
+    e.preventDefault();
+    const html = '<!doctype html>\n' + document.documentElement.outerHTML;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = 'libby-to-x4.html';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+
+  // Every request to the reader goes through here. targetAddressSpace tells
+  // Chrome's Local Network Access this is a deliberate LAN request, which is
+  // what lets an https page reach the reader's plain-http server.
+  class Blocked extends Error {}
+  async function dev(path, opts = {}) {
+    const init = { ...opts, targetAddressSpace: 'local' };
+    let res;
+    try {
+      res = await fetch(base() + path, init);
+    } catch (e) {
+      try { res = await fetch(base() + path, opts); }
+      catch { throw new Blocked('could not reach ' + base() + ' (blocked, offline, or wrong address)'); }
+    }
+    return res;
+  }
+
+  const devStatus = $('devStatus');
+  let device = null;
+
+  async function connect() {
+    devStatus.innerHTML = '<span class="faded">knocking&hellip;</span>';
+    device = null;
+    try {
+      const res = await dev('/api/status');
+      if (!res.ok) throw new Error('reader answered HTTP ' + res.status);
+      device = await res.json();
+      const warn = [];
+      if (device.mode === 'AP') warn.push('reader is in hotspot mode. switch to <i>join network</i> so it can reach adobe.');
+      if (!device.pluginApi) warn.push('this firmware has no plugin api. update to crosspoint 2.0.');
+      devStatus.innerHTML =
+        '<span class="ok">connected.</span> ' + esc(device.device || 'x4') + ' &middot; crosspoint ' + esc(device.version || '?') +
+        ' &middot; ' + esc(device.ip || '') + (device.mode ? ' (' + esc(device.mode.toLowerCase()) + ')' : '') +
+        warn.map((w) => '<br><span class="err">! ' + w + '</span>').join('');
+      $('blocked').hidden = true;
+    } catch (e) {
+      devStatus.innerHTML = '<span class="err">' + esc(e.message) + '</span>';
+      if (e instanceof Blocked) { $('blocked').hidden = false; $('blocked').open = true; }
+    }
+    updateGo();
+    return device;
+  }
+  $('connect').onclick = connect;
+  hostEl.onkeydown = (e) => { if (e.key === 'Enter') connect(); };
+
+  // ---------- queue ----------
+  const queue = []; // {file, state, note}
+  const qEl = $('queue');
+  const drop = $('drop');
+  const fileEl = $('file');
+
+  function addFiles(list) {
+    for (const f of list) {
+      if (!/\.acsm$/i.test(f.name)) { log('skipped ' + f.name + ' (not an .acsm)', 'e'); continue; }
+      if (queue.some((q) => q.file.name === f.name && q.file.size === f.size && q.state !== 'done')) continue;
+      queue.push({ file: f, state: 'ready', note: 'ready' });
+    }
+    render();
+  }
+  function render() {
+    qEl.innerHTML = '';
+    queue.forEach((q, i) => {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'name'; name.textContent = q.file.name; name.title = q.file.name;
+      const st = document.createElement('span');
+      st.className = 'st' + (q.state === 'done' ? ' ok' : q.state === 'error' ? ' err' : '');
+      st.textContent = q.note;
+      li.append(name, st);
+      if (q.state === 'ready' || q.state === 'error' || q.state === 'done') {
+        const x = document.createElement('button');
+        x.className = 'link'; x.type = 'button'; x.textContent = 'x';
+        x.setAttribute('aria-label', 'remove ' + q.file.name);
+        x.onclick = () => { queue.splice(i, 1); render(); };
+        li.append(x);
+      }
+      qEl.append(li);
+    });
+    updateGo();
+  }
+  let busy = false;
+  function updateGo() {
+    $('go').disabled = busy || !queue.some((q) => q.state === 'ready' || q.state === 'error');
+  }
+
+  drop.onclick = () => fileEl.click();
+  drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileEl.click(); } };
+  fileEl.onchange = () => { addFiles(fileEl.files); fileEl.value = ''; };
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
+  // dropping anywhere on the page shouldn't navigate away
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => { e.preventDefault(); if (e.target !== drop) addFiles(e.dataTransfer.files); });
+
+  // ---------- log ----------
+  const logEl = $('log');
+  function log(msg, cls) {
+    const t = new Date().toTimeString().slice(0, 8);
+    const line = document.createElement('div');
+    line.innerHTML = '<span class="t">' + t + '</span>  ' + (cls ? '<span class="' + cls + '">' : '') + esc(msg) + (cls ? '</span>' : '');
+    logEl.append(line);
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+  // ---------- the pipeline ----------
+  function cleanFolder() {
+    let f = '/' + folderEl.value.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    if (f.includes('..')) f = '/Libby';
+    return f;
+  }
+
+  async function ensureFolder(folder) {
+    if (folder === '/') return;
+    const parts = folder.split('/').filter(Boolean);
+    let parent = '/';
+    for (const name of parts) {
+      const list = await dev('/api/files?path=' + encodeURIComponent(parent));
+      const entries = list.ok ? await list.json() : [];
+      if (!entries.some((e) => e.isDirectory && e.name.toLowerCase() === name.toLowerCase())) {
+        const r = await dev('/mkdir', { method: 'POST', body: new URLSearchParams({ name, path: parent }) });
+        if (!r.ok) throw new Error('could not create ' + name + ': ' + (await r.text()).trim());
+      }
+      parent = (parent === '/' ? '' : parent) + '/' + name;
+    }
+  }
+
+  async function upload(file, folder, remoteName) {
+    const fd = new FormData();
+    fd.append('file', file, remoteName);
+    const r = await dev('/upload?overwrite=1&path=' + encodeURIComponent(folder), { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('upload failed: ' + (await r.text()).trim());
+  }
+
+  async function enqueue(path) {
+    // text/plain keeps this a "simple" request (no CORS preflight needed).
+    const body = JSON.stringify({ plugin: 'protected-content', action: 'fulfill', args: { path } });
+    for (let tries = 0; tries < 20; tries++) {
+      const r = await dev('/api/plugin-jobs', { method: 'POST', body, headers: { 'Content-Type': 'text/plain' } });
+      if (r.ok) return (await r.json()).id;
+      const msg = (await r.text()).trim();
+      if (r.status === 503) { await sleep(3000); continue; } // queue full, wait
+      if (r.status === 403 || /disabled/i.test(msg)) throw new Error('plugins are disabled on the reader');
+      throw new Error('could not queue job: HTTP ' + r.status + ' ' + msg);
+    }
+    throw new Error('reader job queue stayed full');
+  }
+
+  async function waitJob(id, onTick) {
+    const start = Date.now();
+    let nudged = false;
+    while (Date.now() - start < 8 * 60 * 1000) {
+      await sleep(1500);
+      const r = await dev('/api/plugin-jobs/status?id=' + id);
+      if (!r.ok) continue;
+      const s = await r.json();
+      onTick(s.state);
+      if (s.state === 'done') return s.result || {};
+      if (s.state === 'error') throw new Error((s.result && s.result.error) || 'plugin reported an error');
+      if (s.state === 'unknown') throw new Error('job vanished from the reader (it may have rebooted)');
+      if (s.state === 'pending' && !nudged && Date.now() - start > 25000) {
+        nudged = true;
+        log('still waiting. is the runner tab open? is protected content installed?', 'e');
+        openRunner(true);
+      }
+    }
+    throw new Error('timed out after 8 minutes');
+  }
+
+  let runner = null;
+  function openRunner(force) {
+    if (!force && runner && !runner.closed) return runner;
+    runner = window.open(base() + '/plugins-run', 'x4runner', 'popup,width=420,height=320');
+    return runner;
+  }
+
+  $('go').onclick = async () => {
+    if (busy) return;
+    busy = true; updateGo();
+    // open the runner inside the click so popup blockers allow it
+    const w = openRunner(false);
+    if (!w) log('popup blocked. allow popups for this page, or open ' + base() + '/plugins-run yourself.', 'e');
+
+    try {
+      if (!device && !(await connect())) throw new Error('not connected to the reader');
+      const folder = cleanFolder();
+      log('preparing ' + folder);
+      await ensureFolder(folder);
+
+      const todo = queue.filter((q) => q.state === 'ready' || q.state === 'error');
+      let ok = 0;
+      for (const q of todo) {
+        const set = (state, note) => { q.state = state; q.note = note; render(); };
+        try {
+          // a short generated name keeps job args under the firmware's 192-byte limit;
+          // the plugin names the finished .epub from the book's real title.
+          const remote = 'libby-' + Date.now().toString(36) + '.acsm';
+          const path = (folder === '/' ? '' : folder) + '/' + remote;
+          set('busy', 'uploading');
+          await upload(q.file, folder, remote);
+          set('busy', 'queued');
+          const id = await enqueue(path);
+          log(q.file.name + ' → job #' + id);
+          const res = await waitJob(id, (st) => set('busy', st === 'running' ? 'fetching' : 'waiting'));
+          const kb = res.bytes ? ' · ' + Math.round(res.bytes / 1024) + ' kb' : '';
+          set('done', 'done');
+          log('“' + (res.title || q.file.name) + '” → ' + (res.dest || folder) + kb, 'k');
+          ok++;
+        } catch (e) {
+          set('error', 'failed');
+          log(q.file.name + ': ' + e.message, 'e');
+          if (/not activated|sign in/i.test(e.message)) log('open the file manager, sign in on the protected content card, then send again.', 'e');
+          if (e instanceof Blocked) { $('blocked').hidden = false; $('blocked').open = true; break; }
+        }
+      }
+      if (ok) log(ok + ' book' + (ok > 1 ? 's' : '') + ' on the reader. you can close the runner tab.', 'k');
+    } catch (e) {
+      log(e.message, 'e');
+      if (e instanceof Blocked) { $('blocked').hidden = false; $('blocked').open = true; }
+    } finally {
+      busy = false; updateGo();
+    }
+  };
+
+  // try quietly on load if we've connected before
+  if (store.get('host', null)) connect();
+})();
+</script>
+</body>
+</html>
