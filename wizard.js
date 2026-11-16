@@ -555,7 +555,7 @@
         st = '<p><span class="ok">connected.</span> ' + esc(d.device || 'x4') + ' · crosspoint ' + esc(d.version || '?') + ' · ' + esc(d.ip || '') + '</p>' +
           (d.mode === 'AP' ? '<p class="err">! the reader is in hotspot mode. switch file transfer to <i>join network</i> so it can reach libby and adobe.</p>' : '') +
           (S.plugins ? '<p>' + (hasPC ? '<span class="ok">[x]</span> protected content installed' : '<span class="err">[ ] protected content not found.</span> install it from plugin hub on the reader.') + '</p>' : '') +
-          (S.plugins ? '<p>' + (hasMe ? '<span class="ok">[x]</span> this wizard is also in the reader’s file manager.' :
+          (S.plugins ? '<p>' + (hasMe ? '<span class="ok">[x]</span> this wizard is also in the reader’s file manager. <button type="button" class="ln" data-act="install">update it</button>' :
             '<span class="f">[ ]</span> also put this wizard in the reader’s file manager? <button type="button" class="ln" data-act="install">install it</button>') + '</p>' : '');
       } else if (S.devErr) {
         st = '<p class="err">' + esc(S.devErr) + '</p>';
